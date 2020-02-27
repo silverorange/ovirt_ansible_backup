@@ -1,0 +1,54 @@
+---
+- name: "Ensure state of backup in_progress directory"
+  file:
+    path: "{{ in_progress_path }}"
+    state: directory
+    mode: 0755
+  delegate_to: "{{ ovirt_host_info.ovirt_hosts[0].address }}"
+  remote_user: "{{ host_remote_user }}"
+
+- name: "Ensure state of backup completed directory"
+  file:
+    path: "{{ completed_path }}"
+    state: directory
+    mode: 0755
+  delegate_to: "{{ ovirt_host_info.ovirt_hosts[0].address }}"
+  remote_user: "{{ host_remote_user }}"
+
+- name: "Get previous event info"
+  ovirt_event_info:
+    auth: "{{ ovirt_auth }}"
+    max: 1
+  register: previous
+
+- name: "Export VM to OVA"
+  ovirt_vm:
+    auth: "{{ ovirt_auth }}"
+    name: "{{ vm_name }}"
+    state: exported
+    cluster: "{{ cluster }}"
+    export_ova:
+        host: "{{ host }}"
+        filename: "{{ vm_name }}.{{ file_ext }}"
+        directory: "{{ in_progress_path }}"
+
+- name: "Wait for export"
+  ovirt_event_info:
+    auth: "{{ ovirt_auth }}"
+    search: "vm={{ vm_name }} and type=1224"
+    from_: "{{ previous.ovirt_events[0].index }}"
+  register: result
+  until: result.ovirt_events | length > 0
+  no_log: "{{ debug_logs }}"
+  retries: "{{ (all_timeout|int // poll_interval) + 1  }}"
+  delay: "{{ poll_interval }}"
+
+- name: "Get current timestamp"
+  shell: "date +%F-%R"
+  register: tstamp
+
+- name: "Move backup to completed"
+  command: "mv {{ in_progress_path }}{% if in_progress_path[-1] != '/' %}/{% endif %}{{ vm_name }}.{{ file_ext }} {{ completed_path }}{% if completed_path[-1] != '/' %}/{% endif %}{{ vm_name }}--{{ tstamp.stdout }}.{{ file_ext }}"
+  register: mv_result
+  delegate_to: "{{ ovirt_host_info.ovirt_hosts[0].address }}"
+  remote_user: "{{ host_remote_user }}"

@@ -1,0 +1,11 @@
+---
+- name: "Find the most recent backup"
+  shell: 'ls -Art {{ completed_path }} | grep {{ item }}-- | tail -n1'
+  register: latest_backup
+  delegate_to: "{{ ovirt_host_info.ovirt_hosts[0].address }}"
+  remote_user: "{{ host_remote_user }}"
+
+- name: "Remove VM backups older than retain_days var excluding the most recent backup"
+  shell: 'find {{ completed_path }} -name "{{ item }}--*.{{ file_ext }}" ! -name {{ latest_backup.stdout }} -mtime +{{ retain_days }} -delete'
+  delegate_to: "{{ ovirt_host_info.ovirt_hosts[0].address }}"
+  remote_user: "{{ host_remote_user }}"
