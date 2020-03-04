@@ -43,6 +43,8 @@
           include_tasks: cleanup.yml
           loop: "{{ vms }}"
 
+      ignore_errors: yes
+
       always:
         - name: "Remove SSO token"
           ovirt_auth:
