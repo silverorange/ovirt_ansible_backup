@@ -31,6 +31,7 @@
         host: "{{ host }}"
         filename: "{{ vm_name }}.{{ file_ext }}"
         directory: "{{ in_progress_path }}"
+  register: export_result
 
 - name: "Wait for export"
   ovirt_event_info:
@@ -42,13 +43,16 @@
   no_log: "{{ debug_logs }}"
   retries: "{{ (all_timeout|int // poll_interval) + 1  }}"
   delay: "{{ poll_interval }}"
+  when: export_result is not failed
 
 - name: "Get current timestamp"
   shell: "date +%F-%R"
   register: tstamp
+  when: export_result is not failed and result is not failed
 
 - name: "Move backup to completed"
   command: "mv {{ in_progress_path }}{% if in_progress_path[-1] != '/' %}/{% endif %}{{ vm_name }}.{{ file_ext }} {{ completed_path }}{% if completed_path[-1] != '/' %}/{% endif %}{{ vm_name }}--{{ tstamp.stdout }}.{{ file_ext }}"
   register: mv_result
   delegate_to: "{{ ovirt_host_info.ovirt_hosts[0].address }}"
   remote_user: "{{ host_remote_user }}"
+  when: export_result is not failed and result is not failed
