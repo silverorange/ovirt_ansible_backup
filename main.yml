@@ -1,6 +1,5 @@
 ---
 - hosts: localhost
-  connection: local
 
   vars:
     host: host0
